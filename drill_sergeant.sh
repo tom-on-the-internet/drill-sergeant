@@ -5,6 +5,7 @@
 SCRIPT_FILE=$(readlink -f "$0")
 DIRECTORY=$(dirname "$SCRIPT_FILE")
 DATA_FILE="$DIRECTORY"/data
+IMAGE_FILE="$DIRECTORY"/image.jpg
 MESSAGE_FILE="$DIRECTORY"/message
 ROUTINE_FILE="$DIRECTORY"/routine
 
@@ -14,8 +15,8 @@ store_message() {
   while read -r line; do
      activity=$(echo "$line" | cut -d = -f 1)
      count_owed=$(echo "$line" | cut -d = -f 2)
-     [[ $line != *"LAST_UPDATE"* ]] && echo "$count_owed $activity" >> "$MESSAGE_FILE"
-   done < "$DATA_FILE"
+     [[ $line != *"LAST_UPDATE"* ]] && echo "$count_owed $activity"
+   done < "$DATA_FILE" >> "$MESSAGE_FILE"
 }
 
 yell_for_work() {
@@ -27,7 +28,7 @@ yell_for_work() {
   touch "$DATA_FILE"
 
   mpv "$DIRECTORY"/sound.mp3 &
-  notify-send -i "$DIRECTORY"/image.jpg "$TITLE" "$MESSAGE"
+  notify-send -i "$IMAGE_FILE" "$TITLE" "$MESSAGE"
 }
 
 update_data_file() {
@@ -38,12 +39,12 @@ update_data_file() {
   grep -q LAST_UPDATE "$DATA_FILE" || echo LAST_UPDATE="$(date +%s)" >> "$DATA_FILE"
 
   # figure out if we should do anything
-  time_stamp=$(grep LAST_UPDATE $DATA_FILE | cut -d = -f 2)
+  time_stamp=$(grep LAST_UPDATE "$DATA_FILE" | cut -d = -f 2)
   current_time=$(date +%s)
   time_stamp_diff="$(( current_time-time_stamp))"
   hours_since_last_update="$(( time_stamp_diff/3600 ))"
 
-  sed -i -e "s/$time_stamp/$current_time/g" "$DATA_FILE"
+  [[ $hours_since_last_update != "0" ]] && sed -i -e "s/$time_stamp/$current_time/g" "$DATA_FILE"
 
   # make sure each activity exists in the data file
   while read -r line;
@@ -68,8 +69,54 @@ update_data_file() {
    store_message
 }
 
-# Decide what to do
+show_first_input_prompt() {
+  printf "\n\n"
+  pixcat thumbnail --size 256 --align left "$IMAGE_FILE"
+  printf "\nWhat do have to report, maggot?\n\n"
+
+  # increment the number owed
+  i=0
+  while ((i++)); read -r line; do
+    activity=$(echo "$line" | cut -d : -f 1)
+    echo [$i] "$activity"
+  done < "$ROUTINE_FILE"
+
+  echo
+}
+
+show_second_input_prompt() {
+  # increment the number owed
+  i=0
+  while ((i++)); read -r line; do
+    [[ $i != "$first_input" ]] && continue
+    activity=$(echo "$line" | cut -d : -f 1)
+    echo "How many $activity did you do?"
+  done < "$ROUTINE_FILE"
+
+  echo
+}
+
+update_amount() {
+  i=0
+  while ((i++)); read -r line; do
+    [[ $i != "$first_input" ]] && continue
+    activity=$(echo "$line" | cut -d : -f 1)
+    current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
+    new_total="$(( current_count - second_input ))"
+    new_total="$(( "$new_total" < 0 ? 0 : "$new_total" ))"
+    sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
+    printf "\nOK. You have $new_total $activity left.\n"
+  done < "$ROUTINE_FILE"
+}
+
 # If the command has the "poke" argument the drill sergeant will yell for work
-# Otherwise, he'll expect you to input your work
 [ "$1" = 'poke' ] && update_data_file && yell_for_work && exit
 
+# Otherwise take input
+show_first_input_prompt
+read -r -s -n1 first_input
+
+show_second_input_prompt
+read -r second_input
+
+update_amount
