@@ -38,8 +38,12 @@ update_data_file() {
   grep -q LAST_UPDATE "$DATA_FILE" || echo LAST_UPDATE="$(date +%s)" >> "$DATA_FILE"
 
   # figure out if we should do anything
+  time_stamp=$(grep LAST_UPDATE $DATA_FILE | cut -d = -f 2)
+  current_time=$(date +%s)
+  time_stamp_diff="$(( current_time-time_stamp))"
+  hours_since_last_update="$(( time_stamp_diff/3600 ))"
 
-
+  sed -i -e "s/$time_stamp/$current_time/g" "$DATA_FILE"
 
   # make sure each activity exists in the data file
   while read -r line;
@@ -52,7 +56,8 @@ update_data_file() {
   # increment the number owed
   while read -r line; do
      activity=$(echo "$line" | cut -d : -f 1)
-     count_owed=$(echo "$line" | cut -d : -f 2)
+     number_per_hour=$(echo "$line" | cut -d : -f 2)
+     count_owed="$(( number_per_hour*hours_since_last_update ))"
      current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
      new_total=$((count_owed + current_count))
 
