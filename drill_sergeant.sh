@@ -5,12 +5,23 @@
 SCRIPT_FILE=$(readlink -f "$0")
 DIRECTORY=$(dirname "$SCRIPT_FILE")
 DATA_FILE="$DIRECTORY"/data
+MESSAGE_FILE="$DIRECTORY"/message
 ROUTINE_FILE="$DIRECTORY"/routine
+
+store_message() {
+  echo You owe me... '\n' > "$MESSAGE_FILE"
+
+  while read -r line; do
+     activity=$(echo "$line" | cut -d = -f 1)
+     count_owed=$(echo "$line" | cut -d = -f 2)
+     [[ $line != *"LAST_UPDATE"* ]] && echo "$count_owed $activity" >> "$MESSAGE_FILE"
+   done < "$DATA_FILE"
+}
 
 yell_for_work() {
   # this is what the drill sergeant will yell
   TITLE='ATTENTION!'
-  MESSAGE='\nYou owe me...\n\n'$(cat "$DATA_FILE")
+  MESSAGE=$(cat "$MESSAGE_FILE")
 
   # make sure the data file exists
   touch "$DATA_FILE"
@@ -48,6 +59,8 @@ update_data_file() {
      # replace count
      sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
    done < "$ROUTINE_FILE"
+
+   store_message
 }
 
 # Decide what to do
