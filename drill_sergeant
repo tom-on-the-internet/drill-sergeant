@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS=900 #every fifteen minutes
+DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS=2700 #every fifteen minutes
 MEDIA_PLAYER=mpv
 NOTIFIER=notify-send
 
@@ -12,7 +12,13 @@ IMAGE_FILE="$DIRECTORY"/image.jpg
 MESSAGE_FILE="$DIRECTORY"/message
 ROUTINE_FILE="$DIRECTORY"/routine
 
+main() {
+  [ "$1" = 'poke' ] && update_data_and_message_file && yell_for_work && exit
+  [ "$1" = 'watch' ] && poke_loop && exit
+  [ "$1" = 'input' ] && take_input && exit
 
+  show_usage
+}
 
 # Store the message that the drill sergeant will yell
 # It show the number of reps of each exercise owed
@@ -42,7 +48,7 @@ update_data_and_message_file() {
   # make sure the data file exists
   touch "$DATA_FILE"
 
-  # initialize timestamp
+  # set timestamp
   grep -q LAST_UPDATE "$DATA_FILE" || echo LAST_UPDATE="$(date +%s)" >> "$DATA_FILE"
 
   # figure out if we should do anything
@@ -84,7 +90,6 @@ show_first_input_prompt() {
   pixcat thumbnail --size 256 --align left "$IMAGE_FILE"
   printf "\nWhat do have to report, maggot?\n\n"
 
-  # increment the number owed
   i=0
   while ((i++)); read -r line; do
     activity=$(echo "$line" | cut -d : -f 1)
@@ -95,7 +100,6 @@ show_first_input_prompt() {
 }
 
 show_second_input_prompt() {
-  # increment the number owed
   i=0
   while ((i++)); read -r line; do
     [[ $i != "$first_input" ]] && continue
@@ -119,21 +123,26 @@ update_amount() {
   done < "$ROUTINE_FILE"
 }
 
+take_input() {
+  show_first_input_prompt
+  read -r -s -n1 first_input
+
+  show_second_input_prompt
+  read -r second_input
+
+  update_amount
+}
+
 poke_loop() {
   while true; do "$SCRIPT_FILE" poke; sleep $DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS; done
 }
 
+show_usage() {
+  printf "\nUsage:\n\n"
+  printf "poke -- Trigger the drill sergeant to check number owed, and notify if any are owed\n"
+  printf "watch -- Run a loop that pokes the drill sergeant every so often\n"
+  printf "input -- Take input of number of reps completed\n"
+}
 
-# If the command has the "poke" argument the drill sergeant will yell for work
-[ "$1" = 'poke' ] && update_data_and_message_file && yell_for_work && exit
+main "$@"
 
-[ "$1" = 'watch' ] && poke_loop
-
-# Otherwise take input
-show_first_input_prompt
-read -r -s -n1 first_input
-
-show_second_input_prompt
-read -r second_input
-
-update_amount
