@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-# Set the script name and directory name
-# For easy reference below
+DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS=900 #every fifteen minutes
+MEDIA_PLAYER=mpv
+NOTIFIER=notify-send
+
+# Set filenames for easy access below
 SCRIPT_FILE=$(readlink -f "$0")
 DIRECTORY=$(dirname "$SCRIPT_FILE")
 DATA_FILE="$DIRECTORY"/data
@@ -9,6 +12,10 @@ IMAGE_FILE="$DIRECTORY"/image.jpg
 MESSAGE_FILE="$DIRECTORY"/message
 ROUTINE_FILE="$DIRECTORY"/routine
 
+
+
+# Store the message that the drill sergeant will yell
+# It show the number of reps of each exercise owed
 store_message() {
   echo You owe me... '\n' > "$MESSAGE_FILE"
 
@@ -19,19 +26,19 @@ store_message() {
    done < "$DATA_FILE" >> "$MESSAGE_FILE"
 }
 
+# this is where the drill sergeant yells
 yell_for_work() {
-  # this is what the drill sergeant will yell
   TITLE='ATTENTION!'
   MESSAGE=$(cat "$MESSAGE_FILE")
 
-  # make sure the data file exists
-  touch "$DATA_FILE"
+  # Play sound
+  $MEDIA_PLAYER "$DIRECTORY"/sound.mp3 &
 
-  mpv "$DIRECTORY"/sound.mp3 &
-  notify-send -i "$IMAGE_FILE" "$TITLE" "$MESSAGE"
+  # Send notification
+  $NOTIFIER -i "$IMAGE_FILE" "$TITLE" "$MESSAGE"
 }
 
-update_data_file() {
+update_data_and_message_file() {
   # make sure the data file exists
   touch "$DATA_FILE"
 
@@ -53,7 +60,7 @@ update_data_file() {
     grep -q "$activity" "$DATA_FILE" || echo "$activity"=0 >> "$DATA_FILE"
   done < "$ROUTINE_FILE"
 
-
+  all_activity_total=0
   # increment the number owed
   while read -r line; do
      activity=$(echo "$line" | cut -d : -f 1)
@@ -61,10 +68,13 @@ update_data_file() {
      count_owed="$(( number_per_hour*hours_since_last_update ))"
      current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
      new_total=$((count_owed + current_count))
+     all_activity_total=$((all_activity_total+new_total))
 
      # replace count
      sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
    done < "$ROUTINE_FILE"
+
+   [[ $all_activity_total = "0" ]] && echo "Nothing due" && exit;
 
    store_message
 }
@@ -109,8 +119,15 @@ update_amount() {
   done < "$ROUTINE_FILE"
 }
 
+poke_loop() {
+  while true; do "$SCRIPT_FILE" poke; sleep $DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS; done
+}
+
+
 # If the command has the "poke" argument the drill sergeant will yell for work
-[ "$1" = 'poke' ] && update_data_file && yell_for_work && exit
+[ "$1" = 'poke' ] && update_data_and_message_file && yell_for_work && exit
+
+[ "$1" = 'watch' ] && poke_loop
 
 # Otherwise take input
 show_first_input_prompt
