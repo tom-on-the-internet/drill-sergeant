@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS=2700 #every fifteen minutes
+DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS=1800 # every half hour
 MEDIA_PLAYER=mpv
 NOTIFIER=notify-send
 
@@ -15,7 +15,7 @@ ROUTINE_FILE="$DIRECTORY"/routine
 main() {
   [ "$1" = 'poke' ] && update_data_and_message_file && yell_for_work && exit
   [ "$1" = 'watch' ] && poke_loop && exit
-  [ "$1" = 'input' ] && take_input && exit
+  [ "$1" = 'report' ] && take_input && exit
 
   show_usage
 }
