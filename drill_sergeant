@@ -37,6 +37,8 @@ yell_for_work() {
   TITLE='ATTENTION!'
   MESSAGE=$(cat "$MESSAGE_FILE")
 
+  [ -t 0 ] && echo $TITLE && cat "$MESSAGE_FILE" && return;
+
   # Play sound
   $MEDIA_PLAYER "$DIRECTORY"/sound.mp3 &
 
