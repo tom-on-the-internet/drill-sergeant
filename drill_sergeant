@@ -12,6 +12,8 @@ IMAGE_FILE="$DIRECTORY"/image.jpg
 MESSAGE_FILE="$DIRECTORY"/message
 ROUTINE_FILE="$DIRECTORY"/routine
 
+TOTAL_ACTIVITIES=$(wc -l "$ROUTINE_FILE" | cut -d ' ' -f 1)
+
 main() {
   [ "$1" = 'poke' ] && update_data_and_message_file && yell_for_work && exit
   [ "$1" = 'watch' ] && poke_loop && exit
@@ -97,6 +99,7 @@ show_first_input_prompt() {
     activity=$(echo "$line" | cut -d : -f 1)
     echo [$i] "$activity"
   done < "$ROUTINE_FILE"
+  echo "[$i] I did everything!"
 
   echo
 }
@@ -125,9 +128,22 @@ update_amount() {
   done < "$ROUTINE_FILE"
 }
 
+complete_all() {
+  i=0
+  while ((i++)); read -r line; do
+    activity=$(echo "$line" | cut -d : -f 1)
+    current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
+    new_total=0
+    sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
+  done < "$ROUTINE_FILE"
+  printf "\nOK. You have you are all done for now!\n"
+}
+
 take_input() {
   show_first_input_prompt
   read -r -s -n1 first_input
+
+  [ "$first_input" -gt "$TOTAL_ACTIVITIES" ] && complete_all && exit;
 
   show_second_input_prompt
   read -r second_input
