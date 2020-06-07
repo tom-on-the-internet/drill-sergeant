@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS=1800 # every half hour
+PUNISHMENT_MULTIPLIER=24
 MEDIA_PLAYER=mpv
 NOTIFIER=notify-send
 
@@ -15,9 +16,10 @@ ROUTINE_FILE="$DIRECTORY"/routine
 TOTAL_ACTIVITIES=$(wc -l "$ROUTINE_FILE" | cut -d ' ' -f 1)
 
 main() {
-  [ "$1" = 'poke' ] && update_data_and_message_file && yell_for_work && exit
+  [ "$1" = 'poke' ] && poke && exit
   [ "$1" = 'watch' ] && poke_loop && exit
   [ "$1" = 'report' ] && take_input && exit
+  [ "$1" = 'punish' ] && punish && exit
 
   show_usage
 }
@@ -84,9 +86,9 @@ update_data_and_message_file() {
      sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
    done < "$ROUTINE_FILE"
 
-   [[ $all_activity_total = "0" ]] && echo "Nothing due" && exit;
-
    store_message
+
+   [[ $all_activity_total = "0" ]] && echo "Nothing due" && exit;
 }
 
 show_first_input_prompt() {
@@ -155,11 +157,32 @@ poke_loop() {
   while true; do "$SCRIPT_FILE" poke; sleep $DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS; done
 }
 
+punish() {
+  while read -r line; do
+     activity=$(echo "$line" | cut -d : -f 1)
+     number_per_hour=$(echo "$line" | cut -d : -f 2)
+     count_owed="$(( number_per_hour*PUNISHMENT_MULTIPLIER ))"
+     current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
+     new_total=$((count_owed + current_count))
+
+     # replace count
+     sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
+   done < "$ROUTINE_FILE"
+
+   poke
+}
+
+poke() {
+  update_data_and_message_file
+  yell_for_work
+}
+
 show_usage() {
   printf "\nUsage:\n\n"
   printf "poke -- Trigger the drill sergeant to check number owed, and notify if any are owed\n"
   printf "watch -- Run a loop that pokes the drill sergeant every so often\n"
   printf "input -- Take input of number of reps completed\n"
+  printf "punish -- Add a lot of reps when you haven't been disciplined.\n"
 }
 
 main "$@"
