@@ -20,6 +20,7 @@ main() {
   [ "$1" = 'watch' ] && poke_loop && exit
   [ "$1" = 'report' ] && take_input && exit
   [ "$1" = 'punish' ] && punish && exit
+  [ "$1" = 'kill' ] && kill && exit
 
   show_usage
 }
@@ -93,7 +94,7 @@ update_data_and_message_file() {
 
 show_first_input_prompt() {
   printf "\n\n"
-  pixcat thumbnail --size 256 --align left "$IMAGE_FILE"
+  # pixcat thumbnail --size 256 --align left "$IMAGE_FILE"
   printf "\nWhat do have to report, maggot?\n\n"
 
   i=0
@@ -177,12 +178,17 @@ poke() {
   yell_for_work
 }
 
+kill(){
+  ps aux | grep sarg | head -n 1 | awk '{print $2}' | xargs kill
+}
+
 show_usage() {
   printf "\nUsage:\n\n"
   printf "poke -- Trigger the drill sergeant to check number owed, and notify if any are owed\n"
   printf "watch -- Run a loop that pokes the drill sergeant every so often\n"
   printf "input -- Take input of number of reps completed\n"
   printf "punish -- Add a lot of reps when you haven't been disciplined.\n"
+  printf "kill -- Kill the watching sarg.\n"
 }
 
 main "$@"
