@@ -74,6 +74,7 @@ update_data_and_message_file() {
   done < "$ROUTINE_FILE"
 
   all_activity_total=0
+
   # increment the number owed
   while read -r line; do
      activity=$(echo "$line" | cut -d : -f 1)
@@ -180,6 +181,9 @@ poke() {
 
 kill(){
   ps aux | grep sarg | head -n 1 | awk '{print $2}' | xargs kill
+
+  echo
+  echo "Killed him."
 }
 
 show_usage() {
