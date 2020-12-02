@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS=1800 # every half hour
+DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS=7200 # every 2 hours
 PUNISHMENT_MULTIPLIER=24
 MEDIA_PLAYER=mpv
 NOTIFIER=notify-send
@@ -16,197 +16,197 @@ ROUTINE_FILE="$DIRECTORY"/routine
 TOTAL_ACTIVITIES=$(wc -l "$ROUTINE_FILE" | cut -d ' ' -f 1)
 
 main() {
-	[ "$1" = 'poke' ] && poke && exit
-	[ "$1" = 'watch' ] && poke_loop && exit
-	[ "$1" = 'report' ] && take_input && exit
-	[ "$1" = 'punish' ] && punish && exit
-	[ "$1" = 'kill' ] && kill && exit
+  [ "$1" = 'poke' ] && poke && exit
+  [ "$1" = 'watch' ] && poke_loop && exit
+  [ "$1" = 'report' ] && take_input && exit
+  [ "$1" = 'punish' ] && punish && exit
+  [ "$1" = 'kill' ] && kill && exit
 
-	show_usage
+  show_usage
 }
 
 # Store the message that the drill sergeant will yell
 # It show the number of reps of each exercise owed
 store_message() {
-	echo You owe me... '\n' >"$MESSAGE_FILE"
+  echo You owe me... '\n' > "$MESSAGE_FILE"
 
-	while read -r line; do
-		activity=$(echo "$line" | cut -d = -f 1)
-		count_owed=$(echo "$line" | cut -d = -f 2)
-		[[ $line != *"LAST_UPDATE"* ]] && echo "$count_owed $activity"
-	done <"$DATA_FILE" >>"$MESSAGE_FILE"
+  while read -r line; do
+    activity=$(echo "$line" | cut -d = -f 1)
+    count_owed=$(echo "$line" | cut -d = -f 2)
+    [[ $line != *"LAST_UPDATE"* ]] && echo "$count_owed $activity"
+  done < "$DATA_FILE" >> "$MESSAGE_FILE"
 }
 
 # this is where the drill sergeant yells
 yell_for_work() {
-	TITLE='ATTENTION!'
-	MESSAGE=$(cat "$MESSAGE_FILE")
+  TITLE='ATTENTION!'
+  MESSAGE=$(cat "$MESSAGE_FILE")
 
-	[ -t 0 ] && echo $TITLE && cat "$MESSAGE_FILE" && return
+  [ -t 0 ] && echo $TITLE && cat "$MESSAGE_FILE" && return
 
-	# Play sound
-	$MEDIA_PLAYER "$DIRECTORY"/sound.mp3 &
+  # Play sound
+  $MEDIA_PLAYER "$DIRECTORY"/sound.mp3 &
 
-	# Send notification
-	$NOTIFIER -i "$IMAGE_FILE" "$TITLE" "$MESSAGE"
+  # Send notification
+  $NOTIFIER -i "$IMAGE_FILE" "$TITLE" "$MESSAGE"
 }
 
 update_data_and_message_file() {
-	# make sure the data file exists
-	touch "$DATA_FILE"
+  # make sure the data file exists
+  touch "$DATA_FILE"
 
-	# set timestamp
-	grep -q LAST_UPDATE "$DATA_FILE" || echo LAST_UPDATE="$(date +%s)" >>"$DATA_FILE"
+  # set timestamp
+  grep -q LAST_UPDATE "$DATA_FILE" || echo LAST_UPDATE="$(date +%s)" >> "$DATA_FILE"
 
-	# figure out if we should do anything
-	time_stamp=$(grep LAST_UPDATE "$DATA_FILE" | cut -d = -f 2)
-	current_time=$(date +%s)
-	time_stamp_diff="$((current_time - time_stamp))"
-	hours_since_last_update="$((time_stamp_diff / 3600))"
+  # figure out if we should do anything
+  time_stamp=$(grep LAST_UPDATE "$DATA_FILE" | cut -d = -f 2)
+  current_time=$(date +%s)
+  time_stamp_diff="$((current_time - time_stamp))"
+  hours_since_last_update="$((time_stamp_diff / 3600))"
 
-	[[ $hours_since_last_update != "0" ]] && sed -i -e "s/$time_stamp/$current_time/g" "$DATA_FILE"
+  [[ $hours_since_last_update != "0" ]] && sed -i -e "s/$time_stamp/$current_time/g" "$DATA_FILE"
 
-	# make sure each activity exists in the data file
-	while read -r line; do
-		activity=$(echo "$line" | cut -d : -f 1)
-		grep -q "$activity" "$DATA_FILE" || echo "$activity"=0 >>"$DATA_FILE"
-	done <"$ROUTINE_FILE"
+  # make sure each activity exists in the data file
+  while read -r line; do
+    activity=$(echo "$line" | cut -d : -f 1)
+    grep -q "$activity" "$DATA_FILE" || echo "$activity"=0 >> "$DATA_FILE"
+  done < "$ROUTINE_FILE"
 
-	all_activity_total=0
+  all_activity_total=0
 
-	# increment the number owed
-	while read -r line; do
-		activity=$(echo "$line" | cut -d : -f 1)
-		number_per_hour=$(echo "$line" | cut -d : -f 2)
-		count_owed="$((number_per_hour * hours_since_last_update))"
-		current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
-		new_total=$((count_owed + current_count))
-		all_activity_total=$((all_activity_total + new_total))
+  # increment the number owed
+  while read -r line; do
+    activity=$(echo "$line" | cut -d : -f 1)
+    number_per_hour=$(echo "$line" | cut -d : -f 2)
+    count_owed="$((number_per_hour * hours_since_last_update))"
+    current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
+    new_total=$((count_owed + current_count))
+    all_activity_total=$((all_activity_total + new_total))
 
-		# replace count
-		sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
-	done <"$ROUTINE_FILE"
+    # replace count
+    sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
+  done < "$ROUTINE_FILE"
 
-	store_message
+  store_message
 
-	[[ $all_activity_total == "0" ]] && echo "Nothing due" && exit
+  [[ $all_activity_total == "0" ]] && echo "Nothing due" && exit
 }
 
 show_first_input_prompt() {
-	printf "\n\n"
-	# pixcat thumbnail --size 256 --align left "$IMAGE_FILE"
-	printf "\nWhat do have to report, maggot?\n\n"
+  printf "\n\n"
+  # pixcat thumbnail --size 256 --align left "$IMAGE_FILE"
+  printf "\nWhat do have to report, maggot?\n\n"
 
-	i=0
-	while
-		((i++))
-		read -r line
-	do
-		activity=$(echo "$line" | cut -d : -f 1)
-		echo [$i] "$activity"
-	done <"$ROUTINE_FILE"
-	echo "[$i] I did everything!"
+  i=0
+  while
+    ((i++))
+    read -r line
+  do
+    activity=$(echo "$line" | cut -d : -f 1)
+    echo [$i] "$activity"
+  done < "$ROUTINE_FILE"
+  echo "[$i] I did everything!"
 
-	echo
+  echo
 }
 
 show_second_input_prompt() {
-	i=0
-	while
-		((i++))
-		read -r line
-	do
-		[[ $i != "$first_input" ]] && continue
-		activity=$(echo "$line" | cut -d : -f 1)
-		echo "How many $activity did you do?"
-	done <"$ROUTINE_FILE"
+  i=0
+  while
+    ((i++))
+    read -r line
+  do
+    [[ $i != "$first_input" ]] && continue
+    activity=$(echo "$line" | cut -d : -f 1)
+    echo "How many $activity did you do?"
+  done < "$ROUTINE_FILE"
 
-	echo
+  echo
 }
 
 update_amount() {
-	i=0
-	while
-		((i++))
-		read -r line
-	do
-		[[ $i != "$first_input" ]] && continue
-		activity=$(echo "$line" | cut -d : -f 1)
-		current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
-		new_total="$((current_count - second_input))"
-		new_total="$(("$new_total" < 0 ? 0 : "$new_total"))"
-		sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
-		printf "\nOK. You have $new_total $activity left.\n"
-	done <"$ROUTINE_FILE"
+  i=0
+  while
+    ((i++))
+    read -r line
+  do
+    [[ $i != "$first_input" ]] && continue
+    activity=$(echo "$line" | cut -d : -f 1)
+    current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
+    new_total="$((current_count - second_input))"
+    new_total="$(("$new_total" < 0 ? 0 : "$new_total"))"
+    sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
+    printf "\nOK. You have $new_total $activity left.\n"
+  done < "$ROUTINE_FILE"
 }
 
 complete_all() {
-	i=0
-	while
-		((i++))
-		read -r line
-	do
-		activity=$(echo "$line" | cut -d : -f 1)
-		current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
-		new_total=0
-		sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
-	done <"$ROUTINE_FILE"
-	printf "\nOK. You have you are all done for now!\n"
+  i=0
+  while
+    ((i++))
+    read -r line
+  do
+    activity=$(echo "$line" | cut -d : -f 1)
+    current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
+    new_total=0
+    sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
+  done < "$ROUTINE_FILE"
+  printf "\nOK. You have you are all done for now!\n"
 }
 
 take_input() {
-	show_first_input_prompt
-	read -r -s -n1 first_input
+  show_first_input_prompt
+  read -r -s -n1 first_input
 
-	[ "$first_input" -gt "$TOTAL_ACTIVITIES" ] && complete_all && exit
+  [ "$first_input" -gt "$TOTAL_ACTIVITIES" ] && complete_all && exit
 
-	show_second_input_prompt
-	read -r second_input
+  show_second_input_prompt
+  read -r second_input
 
-	update_amount
+  update_amount
 }
 
 poke_loop() {
-	while true; do
-		"$SCRIPT_FILE" poke
-		sleep $DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS
-	done
+  while true; do
+    "$SCRIPT_FILE" poke
+    sleep $DELAY_BETWEEN_NOTIFICATIONS_IN_SECONDS
+  done
 }
 
 punish() {
-	while read -r line; do
-		activity=$(echo "$line" | cut -d : -f 1)
-		number_per_hour=$(echo "$line" | cut -d : -f 2)
-		count_owed="$((number_per_hour * PUNISHMENT_MULTIPLIER))"
-		current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
-		new_total=$((count_owed + current_count))
+  while read -r line; do
+    activity=$(echo "$line" | cut -d : -f 1)
+    number_per_hour=$(echo "$line" | cut -d : -f 2)
+    count_owed="$((number_per_hour * PUNISHMENT_MULTIPLIER))"
+    current_count=$(grep "$activity" "$DATA_FILE" | cut -d '=' -f 2-)
+    new_total=$((count_owed + current_count))
 
-		# replace count
-		sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
-	done <"$ROUTINE_FILE"
+    # replace count
+    sed -i -e "s/$activity=$current_count/$activity=$new_total/g" "$DATA_FILE"
+  done < "$ROUTINE_FILE"
 
-	poke
+  poke
 }
 
 poke() {
-	update_data_and_message_file
-	yell_for_work
+  update_data_and_message_file
+  yell_for_work
 }
 
 kill() {
-	ps aux | grep sarg | head -n 1 | awk '{print $2}' | xargs kill
+  ps aux | grep sarg | head -n 1 | awk '{print $2}' | xargs kill
 
-	echo
-	echo "Killed him."
+  echo
+  echo "Killed him."
 }
 
 show_usage() {
-	printf "\nUsage:\n\n"
-	printf "poke -- Trigger the drill sergeant to check number owed, and notify if any are owed\n"
-	printf "watch -- Run a loop that pokes the drill sergeant every so often\n"
-	printf "input -- Take input of number of reps completed\n"
-	printf "punish -- Add a lot of reps when you haven't been disciplined.\n"
-	printf "kill -- Kill the watching sarg.\n"
+  printf "\nUsage:\n\n"
+  printf "poke -- Trigger the drill sergeant to check number owed, and notify if any are owed\n"
+  printf "watch -- Run a loop that pokes the drill sergeant every so often\n"
+  printf "input -- Take input of number of reps completed\n"
+  printf "punish -- Add a lot of reps when you haven't been disciplined.\n"
+  printf "kill -- Kill the watching sarg.\n"
 }
 
 main "$@"
